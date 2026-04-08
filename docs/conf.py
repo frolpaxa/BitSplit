@@ -17,23 +17,19 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",
     "myst_parser",
-    "sphinx_wagtail_theme",
 ]
 
 templates_path = ["_templates"]
 exclude_patterns = ["_build"]
 
 # Theme
-html_theme = "sphinx_wagtail_theme"
+html_theme = "furo"
 html_title = "bitsplit"
 html_static_path = ["_static"]
-html_theme_options = dict(
-    project_name="bitsplit",
-    logo="logo.png",
-    logo_alt="bitsplit",
-    logo_height=59,
-    logo_url="/",
-)
+html_theme_options = {
+    "light_logo": "logo-light.png",
+    "dark_logo": "logo-dark.png",
+}
 
 # MyST (Markdown support)
 source_suffix = {
