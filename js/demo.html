@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>bitsplit viewer</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: system-ui, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem;
+      min-height: 100vh;
+    }
+    h1 { font-size: 1.5rem; margin-bottom: 0.5rem; color: #818cf8; }
+    p.sub { color: #94a3b8; margin-bottom: 2rem; font-size: 0.9rem; }
+    .panel {
+      background: #1e293b;
+      border-radius: 12px;
+      padding: 1.5rem;
+      width: 100%;
+      max-width: 640px;
+      margin-bottom: 1.5rem;
+    }
+    label { display: block; font-size: 0.85rem; color: #94a3b8; margin-bottom: 0.4rem; }
+    input[type="text"], input[type="file"] {
+      width: 100%;
+      padding: 0.6rem 0.8rem;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      background: #0f172a;
+      color: #e2e8f0;
+      font-size: 0.9rem;
+      margin-bottom: 1rem;
+    }
+    input[type="text"]:focus { outline: none; border-color: #818cf8; }
+    button {
+      padding: 0.6rem 1.5rem;
+      background: #6366f1;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      cursor: pointer;
+    }
+    button:hover { background: #4f46e5; }
+    button:disabled { opacity: 0.5; cursor: default; }
+    #output {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+    }
+    #output img {
+      max-width: 100%;
+      border-radius: 8px;
+    }
+    #output canvas {
+      max-width: 100%;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    .controls {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+    .controls button { padding: 0.4rem 1rem; font-size: 0.85rem; }
+    .info {
+      font-size: 0.8rem;
+      color: #64748b;
+      margin-top: 0.5rem;
+    }
+    .status {
+      font-size: 0.85rem;
+      color: #818cf8;
+      margin-top: 0.5rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>bitsplit viewer</h1>
+  <p class="sub">Decode and view bitsplit-protected images and videos in the browser</p>
+
+  <div class="panel">
+    <label>Block file (.bin)</label>
+    <input type="file" id="blockFile" accept=".bin,*/*">
+
+    <label>Or block URL</label>
+    <input type="text" id="blockUrl" placeholder="https://example.com/data.bin">
+
+    <label>Key</label>
+    <input type="text" id="keyInput" placeholder="340079864808174098294188674279182237768:8843264:1105424">
+
+    <button id="decodeBtn" onclick="handleDecode()">Decode</button>
+    <div class="status" id="status"></div>
+  </div>
+
+  <div class="panel" id="output"></div>
+
+  <div class="info">
+    Files are decoded locally in your browser. No data is sent to any server.<br>
+    Right-click and download are disabled for video content.
+  </div>
+
+  <script src="bitsplit.js"></script>
+  <script>
+    let videoCtrl = null;
+
+    async function handleDecode() {
+      const keyStr = document.getElementById("keyInput").value.trim();
+      const blockUrlInput = document.getElementById("blockUrl").value.trim();
+      const blockFile = document.getElementById("blockFile").files[0];
+      const status = document.getElementById("status");
+      const output = document.getElementById("output");
+      const btn = document.getElementById("decodeBtn");
+
+      if (!keyStr) { status.textContent = "Enter a key"; return; }
+      if (!blockFile && !blockUrlInput) { status.textContent = "Provide a block file or URL"; return; }
+
+      btn.disabled = true;
+      status.textContent = "Decoding...";
+      output.innerHTML = "";
+      if (videoCtrl) { videoCtrl.destroy(); videoCtrl = null; }
+
+      try {
+        let bytes;
+        if (blockFile) {
+          const buf = await blockFile.arrayBuffer();
+          bytes = Bitsplit.decodeBytes(new Uint8Array(buf), keyStr);
+        } else {
+          bytes = await Bitsplit.decode(blockUrlInput, keyStr);
+        }
+
+        const { size } = Bitsplit.parseKey(keyStr);
+        status.textContent = `Decoded ${formatSize(size)}`;
+
+        // Detect type and display
+        const mime = detectType(bytes);
+
+        if (mime.startsWith("image/")) {
+          const img = document.createElement("img");
+          const blob = new Blob([bytes], { type: mime });
+          img.src = URL.createObjectURL(blob);
+          img.onload = () => URL.revokeObjectURL(img.src);
+          img.oncontextmenu = (e) => e.preventDefault();
+          output.appendChild(img);
+
+        } else if (mime.startsWith("video/")) {
+          const canvas = document.createElement("canvas");
+          canvas.style.width = "100%";
+          output.appendChild(canvas);
+
+          const controls = document.createElement("div");
+          controls.className = "controls";
+          controls.innerHTML = `
+            <button onclick="togglePlay()">Play / Pause</button>
+            <button onclick="videoCtrl.seek(0)">Restart</button>
+          `;
+          output.appendChild(controls);
+
+          videoCtrl = await playOnCanvas(bytes, mime, canvas);
+
+        } else {
+          // Generic file — offer info
+          status.textContent = `Decoded ${formatSize(size)} (${mime})`;
+          const info = document.createElement("div");
+          info.textContent = `File type: ${mime}, size: ${formatSize(size)}`;
+          output.appendChild(info);
+        }
+      } catch (e) {
+        status.textContent = `Error: ${e.message}`;
+        console.error(e);
+      }
+      btn.disabled = false;
+    }
+
+    async function playOnCanvas(bytes, mime, canvas) {
+      const blob = new Blob([bytes], { type: mime });
+      const video = document.createElement("video");
+      video.playsInline = true;
+      const url = URL.createObjectURL(blob);
+      video.src = url;
+
+      const ctx = canvas.getContext("2d");
+      canvas.addEventListener("contextmenu", (e) => e.preventDefault());
+      canvas.addEventListener("click", () => {
+        if (video.paused) video.play(); else video.pause();
+      });
+
+      const ctrl = {
+        video,
+        play() { video.play(); },
+        pause() { video.pause(); },
+        seek(t) { video.currentTime = t; },
+        destroy() { video.pause(); video.src = ""; URL.revokeObjectURL(url); },
+      };
+
+      function render() {
+        if (!video.paused && !video.ended) {
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          ctx.drawImage(video, 0, 0);
+        }
+        requestAnimationFrame(render);
+      }
+
+      return new Promise((resolve) => {
+        video.addEventListener("loadeddata", () => {
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          ctx.drawImage(video, 0, 0);
+          render();
+          video.play();
+          resolve(ctrl);
+        });
+      });
+    }
+
+    function togglePlay() {
+      if (!videoCtrl) return;
+      if (videoCtrl.video.paused) videoCtrl.play(); else videoCtrl.pause();
+    }
+
+    function detectType(bytes) {
+      if (bytes[0] === 0xff && bytes[1] === 0xd8) return "image/jpeg";
+      if (bytes[0] === 0x89 && bytes[1] === 0x50) return "image/png";
+      if (bytes[0] === 0x47 && bytes[1] === 0x49) return "image/gif";
+      if (bytes[0] === 0x52 && bytes[1] === 0x49) return "image/webp";
+      if (bytes[4] === 0x66 && bytes[5] === 0x74 && bytes[6] === 0x79 && bytes[7] === 0x70)
+        return "video/mp4";
+      if (bytes[0] === 0x1a && bytes[1] === 0x45) return "video/webm";
+      return "application/octet-stream";
+    }
+
+    function formatSize(bytes) {
+      if (bytes < 1024) return bytes + " B";
+      if (bytes < 1048576) return (bytes / 1024).toFixed(1) + " KB";
+      if (bytes < 1073741824) return (bytes / 1048576).toFixed(1) + " MB";
+      return (bytes / 1073741824).toFixed(2) + " GB";
+    }
+
+    // Disable common download shortcuts on the page
+    document.addEventListener("keydown", (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "s") e.preventDefault();
+    });
+  </script>
+</body>
+</html>
