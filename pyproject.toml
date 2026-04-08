@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bitsplit"
+version = "0.1.0"
+description = "Split any file into a keyless binary block and a 128-bit text key."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+authors = [
+    { name = "Paul" },
+]
+keywords = ["file-splitting", "binary", "key", "bitwise"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Security",
+    "Topic :: Utilities",
+]
+
+[project.urls]
+Homepage = "https://github.com/frolpaxa/BitSplit"
+Repository = "https://github.com/frolpaxa/BitSplit"
+Documentation = "https://bitsplit.readthedocs.io"
+
+[project.scripts]
+bitsplit = "bitsplit.cli:main"
