@@ -65,23 +65,6 @@ content = decode(block, key)
 open("restored.jpg", "wb").write(content)
 ```
 
-### JavaScript (browser)
-
-Decode and display protected images and videos directly in the browser — no server-side decoding, no downloadable source file.
-
-```html
-<script src="bitsplit.js"></script>
-<script>
-  // Show a protected image
-  Bitsplit.showImage("/blocks/photo.bin", "340079...:8843264:1105424", document.getElementById("img"));
-
-  // Play a protected video on canvas (no right-click save, no src URL)
-  Bitsplit.playVideo("/blocks/video.bin", "key...", document.getElementById("canvas"));
-</script>
-```
-
-See [`js/demo.html`](js/demo.html) for a working demo and [`js/bitsplit.js`](js/bitsplit.js) for the full API.
-
 ## Key format
 
 ```
