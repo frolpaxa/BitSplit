@@ -23,7 +23,7 @@ def encode(data: bytes) -> tuple[bytes, str]:
         data: Source file content as bytes.
 
     Returns:
-        (block, key) where block is bytes and key is "data:count:size:salt" string.
+        (block, key) where block is bytes and key is "data:count:size" string.
     """
     size = len(data)
 
@@ -43,8 +43,7 @@ def decode(block: bytes, key: str) -> bytes:
 
     Args:
         block: Binary block (indices).
-        key: Key string in "data:count:size" format (masked with block hash)
-             or legacy "data:count:size:salt" format.
+        key: Key string in "data:count:size" format (masked with block hash).
 
     Returns:
         Restored file content as bytes.
@@ -253,18 +252,13 @@ def _mask_key(raw_key: str, block: bytes) -> str:
 
 
 def _parse_key(key: str, block: bytes = None) -> tuple[int, int, int]:
-    """Parse key string, unmasking with block hash if available."""
+    """Parse key string, unmasking with block hash."""
     parts = key.split(":")
-    if len(parts) == 4:
-        # Legacy salted format: data:count:size:salt
-        salt = int(parts[3])
-        key_data = int(parts[0]) ^ salt
-    elif block is not None and len(block) > 0:
-        # New format: data XORed with block hash
-        key_data = int(parts[0]) ^ _block_hash(block)
-    else:
-        # Raw/legacy format without salt
-        key_data = int(parts[0])
+    if len(parts) != 3:
+        raise ValueError(f"Invalid key format: expected data:count:size, got {len(parts)} parts")
+    key_data = int(parts[0])
+    if block is not None and len(block) >= 2:
+        key_data = key_data ^ _block_hash(block)
     count = int(parts[1])
     size = int(parts[2])
     return key_data, count, size

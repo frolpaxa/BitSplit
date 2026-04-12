@@ -103,18 +103,12 @@ def test_unique_keys():
     assert decode(block2, key2) == data2
 
 
-def test_legacy_salted_key():
-    """Old keys with salt (4 parts) should still decode."""
+def test_invalid_key_format():
+    """Keys with wrong number of parts should raise ValueError."""
+    import pytest
     data = os.urandom(500)
-    block, key = encode(data)
-    # Simulate legacy salted key: unmask with block hash, then re-salt with random
-    import hashlib
-    sample = block[:4096] if len(block) > 4096 else block
-    block_hash = int.from_bytes(hashlib.sha256(sample).digest()[:16], "big")
-    parts = key.split(":")
-    real_key_data = int(parts[0]) ^ block_hash  # unmask to get original key_data
-    import secrets
-    salt = secrets.randbits(128)
-    salted = real_key_data ^ salt
-    legacy_key = f"{salted}:{parts[1]}:{parts[2]}:{salt}"
-    assert decode(block, legacy_key) == data
+    block, _ = encode(data)
+    with pytest.raises(ValueError):
+        decode(block, "1:2:3:4")
+    with pytest.raises(ValueError):
+        decode(block, "1:2")
