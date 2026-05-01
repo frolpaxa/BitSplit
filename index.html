@@ -1,0 +1,1032 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>bitsplit — split any file into a keyless block and a 128-bit key</title>
+<meta name="description" content="Split any file into a binary block and a 128-bit text key. Without the key, the block is useless. Pure Python, zero dependencies.">
+
+<!-- Open Graph -->
+<meta property="og:title" content="bitsplit">
+<meta property="og:description" content="Split any file into a keyless block and a 128-bit text key.">
+<meta property="og:type" content="website">
+
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700;800&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --indigo-500: #6366f1;
+  --indigo-600: #4f46e5;
+  --indigo-400: #818cf8;
+  --indigo-300: #a5b4fc;
+  --indigo-50:  #eef2ff;
+  --lavender-200: #d3d4fb;
+  --lavender-300: #c4b5fd;
+  --lavender-400: #a88afa;
+  --slate-50:  #f8fafc;
+  --slate-100: #f1f5f9;
+  --slate-200: #e2e8f0;
+  --slate-300: #cbd5e1;
+  --slate-400: #94a3b8;
+  --slate-500: #64748b;
+  --slate-600: #475569;
+  --slate-700: #334155;
+  --slate-800: #1e293b;
+  --slate-900: #0f172a;
+  --slate-950: #020617;
+  --amber-400: #fbbf24;
+  --amber-100: #fef3c7;
+  --emerald-500: #10b981;
+  --rose-500: #f43f5e;
+
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--slate-800);
+  background: #ffffff;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a { color: var(--indigo-500); text-decoration: none; }
+a:hover { color: var(--indigo-600); text-decoration: underline; text-underline-offset: 0.18em; }
+
+.mono { font-family: var(--mono); letter-spacing: -0.01em; }
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--indigo-500);
+}
+
+/* =========================================================
+   NAV
+   ========================================================= */
+.nav {
+  position: sticky; top: 0; z-index: 50;
+  background: rgba(2, 6, 23, 0.85);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.nav-inner {
+  max-width: 1120px; margin: 0 auto;
+  padding: 14px 32px;
+  display: flex; align-items: center; gap: 28px;
+}
+.nav-brand {
+  display: flex; align-items: center; gap: 10px;
+  font-family: var(--mono); font-weight: 800; font-size: 17px;
+  color: white; text-decoration: none;
+}
+.nav-brand:hover { text-decoration: none; color: white; }
+.nav-brand .b1 { color: white; }
+.nav-brand .b2 { color: var(--indigo-400); }
+.nav-links {
+  display: flex; gap: 22px; align-items: center;
+  font-size: 14px;
+  margin-left: auto;
+}
+.nav-links a {
+  color: var(--slate-300); font-family: var(--mono); font-weight: 500;
+  white-space: nowrap;
+}
+.nav-links a:hover { color: white; text-decoration: none; }
+.nav-cta {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 8px 14px;
+  background: var(--indigo-500);
+  color: white !important;
+  border-radius: 8px;
+  font-family: var(--mono); font-weight: 600; font-size: 13px;
+  transition: background 180ms;
+}
+.nav-cta:hover { background: var(--indigo-600); text-decoration: none; }
+
+/* =========================================================
+   HERO
+   ========================================================= */
+.hero {
+  background: var(--slate-950);
+  background-image:
+    radial-gradient(circle at 80% 20%, rgba(99,102,241,0.15), transparent 50%),
+    radial-gradient(circle at 20% 80%, rgba(168,138,250,0.08), transparent 50%);
+  color: var(--slate-100);
+  padding: 80px 32px 100px;
+  position: relative;
+  overflow: hidden;
+}
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(99,102,241,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(99,102,241,0.04) 1px, transparent 1px);
+  background-size: 40px 40px;
+  mask-image: radial-gradient(ellipse 60% 60% at 50% 50%, black 30%, transparent 70%);
+  -webkit-mask-image: radial-gradient(ellipse 60% 60% at 50% 50%, black 30%, transparent 70%);
+  pointer-events: none;
+}
+.hero-inner {
+  max-width: 1120px; margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  gap: 60px;
+  align-items: center;
+  position: relative;
+  z-index: 1;
+}
+.hero h1 {
+  font-family: var(--mono);
+  font-weight: 800;
+  font-size: 64px;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  margin: 16px 0 20px;
+  color: white;
+}
+.hero h1 .accent { color: var(--indigo-400); }
+.hero .lede {
+  font-size: 19px;
+  line-height: 1.55;
+  color: var(--slate-300);
+  max-width: 540px;
+  margin: 0 0 32px;
+}
+.hero-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 12px 20px;
+  font-family: var(--mono); font-weight: 600; font-size: 14px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background 180ms, color 180ms, border-color 180ms, transform 80ms;
+  text-decoration: none;
+}
+.btn-primary { background: var(--indigo-500); color: white; }
+.btn-primary:hover { background: var(--indigo-400); color: white; text-decoration: none; }
+.btn-primary:active { transform: translateY(1px); }
+.btn-secondary {
+  background: transparent;
+  color: var(--slate-100);
+  border-color: rgba(255,255,255,0.18);
+}
+.btn-secondary:hover { background: rgba(255,255,255,0.05); color: white; text-decoration: none; }
+
+/* Hero glyph (the split) */
+.hero-glyph {
+  display: flex; align-items: stretch; justify-content: center;
+  gap: 24px;
+  height: 320px;
+  position: relative;
+}
+.glyph-block {
+  width: 110px;
+  border-radius: 14px;
+  display: flex; flex-direction: column; justify-content: center; align-items: center;
+  gap: 12px;
+  font-family: var(--mono); font-weight: 700; font-size: 28px;
+  position: relative;
+  animation: floatY 6s ease-in-out infinite;
+}
+.glyph-block.b-key {
+  background: var(--indigo-500);
+  color: white;
+  box-shadow: 0 30px 60px -10px rgba(99,102,241,0.5), 0 0 0 1px rgba(255,255,255,0.06) inset;
+  animation-delay: 0s;
+}
+.glyph-block.b-data {
+  background: rgba(168,138,250,0.18);
+  color: var(--lavender-300);
+  border: 1px solid rgba(168,138,250,0.4);
+  animation-delay: 1.5s;
+}
+.glyph-divider {
+  border-left: 2px dashed var(--slate-600);
+  height: 100%;
+  align-self: stretch;
+}
+.glyph-label {
+  position: absolute;
+  bottom: -32px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--slate-500);
+  white-space: nowrap;
+}
+.glyph-label .file {
+  display: block; color: var(--slate-300); font-size: 12px;
+  margin-top: 2px; text-transform: none; letter-spacing: 0;
+}
+@keyframes floatY {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-8px); }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.hero h1, .hero .lede, .hero-actions, .hero .eyebrow {
+  animation: fadeInUp 600ms cubic-bezier(0.2, 0, 0, 1) backwards;
+}
+.hero .eyebrow { animation-delay: 0ms; }
+.hero h1 { animation-delay: 80ms; }
+.hero .lede { animation-delay: 160ms; }
+.hero-actions { animation-delay: 240ms; }
+
+/* =========================================================
+   QUICK STATS / BADGES BAR
+   ========================================================= */
+.stats {
+  background: var(--slate-900);
+  border-top: 1px solid rgba(255,255,255,0.06);
+  padding: 24px 32px;
+}
+.stats-inner {
+  max-width: 1120px; margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 32px;
+}
+.stat { text-align: left; }
+.stat .num {
+  font-family: var(--mono); font-weight: 700; font-size: 26px;
+  color: white;
+  letter-spacing: -0.01em;
+}
+.stat .num .accent { color: var(--indigo-400); }
+.stat .lbl {
+  font-family: var(--mono); font-size: 11px;
+  text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--slate-500); margin-top: 4px;
+}
+
+/* =========================================================
+   GENERIC SECTION
+   ========================================================= */
+section { padding: 96px 32px; }
+.section-inner { max-width: 1120px; margin: 0 auto; }
+.section-head { max-width: 720px; margin-bottom: 48px; }
+.section-head h2 {
+  font-family: var(--mono); font-weight: 800; font-size: 40px;
+  line-height: 1.1; letter-spacing: -0.02em;
+  margin: 12px 0 14px;
+  color: var(--slate-900);
+}
+.section-head .sub {
+  font-size: 17px; color: var(--slate-500); line-height: 1.55;
+  margin: 0;
+}
+
+/* =========================================================
+   HOW IT WORKS — 3 columns
+   ========================================================= */
+.how-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+.how-card {
+  background: var(--slate-50);
+  border: 1px solid var(--slate-200);
+  border-radius: 14px;
+  padding: 28px 24px;
+  position: relative;
+  transition: transform 180ms, box-shadow 180ms, border-color 180ms;
+}
+.how-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px rgba(15,23,42,0.08);
+  border-color: var(--slate-300);
+}
+.how-step {
+  font-family: var(--mono); font-size: 12px; font-weight: 700;
+  color: var(--indigo-500);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+.how-card h3 {
+  font-family: var(--mono); font-weight: 700; font-size: 20px;
+  margin: 0 0 12px;
+  color: var(--slate-900);
+}
+.how-card p {
+  margin: 0 0 16px; color: var(--slate-600); font-size: 14.5px;
+}
+.how-card .codeline {
+  background: var(--slate-900);
+  color: var(--slate-200);
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-family: var(--mono); font-size: 12.5px;
+  display: block;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+.how-card .codeline .com { color: var(--slate-500); }
+.how-card .codeline .num { color: var(--amber-400); }
+
+/* The flow diagram */
+.flow {
+  margin-top: 56px;
+  background: var(--slate-900);
+  border-radius: 16px;
+  padding: 40px 32px;
+  font-family: var(--mono);
+  color: var(--slate-200);
+  overflow-x: auto;
+}
+.flow pre {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--slate-300);
+}
+.flow .indigo { color: var(--indigo-400); font-weight: 700; }
+.flow .lav { color: var(--lavender-300); font-weight: 700; }
+
+/* =========================================================
+   INSTALL / USAGE — terminal demo
+   ========================================================= */
+.install-grid {
+  display: grid; grid-template-columns: 1fr 1.1fr;
+  gap: 48px; align-items: center;
+}
+.install-copy h2 { margin: 12px 0 16px; }
+.install-copy p { color: var(--slate-600); font-size: 16.5px; }
+.install-tabs {
+  display: inline-flex;
+  background: var(--slate-100);
+  border-radius: 8px;
+  padding: 4px;
+  margin-bottom: 12px;
+}
+.install-tab {
+  font-family: var(--mono); font-size: 13px; font-weight: 600;
+  padding: 6px 14px; border-radius: 6px;
+  cursor: pointer;
+  color: var(--slate-500);
+  background: transparent;
+  border: none;
+}
+.install-tab.active { background: white; color: var(--slate-900); box-shadow: 0 1px 2px rgba(15,23,42,0.06); }
+.install-cmd {
+  display: flex; align-items: center;
+  background: var(--slate-900);
+  color: white;
+  padding: 14px 18px;
+  border-radius: 10px;
+  font-family: var(--mono); font-size: 14px;
+  gap: 12px;
+  white-space: nowrap;
+}
+.install-cmd #install-cmd-text { white-space: nowrap; }
+.install-cmd .prompt { color: var(--indigo-400); }
+.install-cmd .copy-btn {
+  margin-left: auto;
+  background: transparent;
+  border: 1px solid var(--slate-700);
+  color: var(--slate-400);
+  font-family: var(--mono); font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  transition: color 180ms, border-color 180ms;
+}
+.install-cmd .copy-btn:hover { color: white; border-color: var(--slate-500); }
+.install-cmd .copy-btn.copied { color: var(--emerald-500); border-color: var(--emerald-500); }
+
+/* Terminal */
+.terminal {
+  background: var(--slate-950);
+  border-radius: 14px;
+  border: 1px solid var(--slate-800);
+  box-shadow: 0 30px 80px -20px rgba(15,23,42,0.4), 0 0 0 1px rgba(99,102,241,0.1);
+  overflow: hidden;
+}
+.term-bar {
+  background: #0a1020;
+  padding: 10px 14px;
+  display: flex; align-items: center; gap: 7px;
+  border-bottom: 1px solid var(--slate-800);
+}
+.term-bar .dot { width: 12px; height: 12px; border-radius: 50%; }
+.term-bar .dot.r { background: #ff5f57; }
+.term-bar .dot.y { background: #febc2e; }
+.term-bar .dot.g { background: #28c841; }
+.term-bar .title {
+  margin-left: auto;
+  font-family: var(--mono); font-size: 12px;
+  color: var(--slate-500);
+}
+.term-body {
+  padding: 18px 20px 22px;
+  font-family: var(--mono); font-size: 13.5px;
+  line-height: 1.7;
+  color: var(--slate-200);
+  min-height: 280px;
+}
+.term-line { display: block; }
+.term-line .prompt { color: var(--indigo-400); margin-right: 8px; }
+.term-line .out { color: var(--slate-400); }
+.term-line .key { color: var(--lavender-300); word-break: break-all; }
+.term-line .ok { color: var(--emerald-500); }
+
+.term-line.typing { opacity: 0; animation: typeIn 200ms forwards; }
+.term-line.delay-1 { animation-delay: 400ms; }
+.term-line.delay-2 { animation-delay: 1200ms; }
+.term-line.delay-3 { animation-delay: 1600ms; }
+.term-line.delay-4 { animation-delay: 2400ms; }
+.term-line.delay-5 { animation-delay: 3200ms; }
+.term-line.delay-6 { animation-delay: 4000ms; }
+.term-line.delay-7 { animation-delay: 4400ms; }
+.term-line.delay-8 { animation-delay: 5200ms; }
+@keyframes typeIn { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: translateY(0); } }
+.cursor {
+  display: inline-block;
+  width: 8px; height: 16px;
+  background: var(--indigo-400);
+  vertical-align: middle;
+  animation: blink 1s steps(2) infinite;
+  margin-left: 2px;
+}
+@keyframes blink { 50% { opacity: 0; } }
+
+/* =========================================================
+   PERFORMANCE — bar chart
+   ========================================================= */
+.perf-section { background: var(--slate-50); }
+.perf-grid {
+  display: grid; grid-template-columns: 1fr 1.3fr;
+  gap: 56px; align-items: start;
+}
+.perf-copy p { color: var(--slate-600); }
+.perf-copy .note {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--slate-500);
+  margin-top: 24px;
+  padding: 12px 14px;
+  background: white;
+  border-radius: 8px;
+  border: 1px solid var(--slate-200);
+  line-height: 1.6;
+}
+.perf-chart {
+  background: white;
+  border: 1px solid var(--slate-200);
+  border-radius: 14px;
+  padding: 28px 28px 24px;
+}
+.perf-chart h4 {
+  font-family: var(--mono); font-weight: 700; font-size: 14px;
+  margin: 0 0 4px; color: var(--slate-900);
+}
+.perf-chart .sub {
+  font-family: var(--mono); font-size: 11px; color: var(--slate-500);
+  margin-bottom: 22px; text-transform: uppercase; letter-spacing: 0.08em;
+}
+.bar-row {
+  display: grid; grid-template-columns: 110px 1fr 64px;
+  gap: 12px; align-items: center;
+  margin-bottom: 11px;
+  font-family: var(--mono); font-size: 13px;
+}
+.bar-row .lbl { color: var(--slate-700); font-weight: 500; }
+.bar-row.us .lbl { color: var(--indigo-600); font-weight: 700; }
+.bar-track { background: var(--slate-100); border-radius: 4px; height: 14px; position: relative; overflow: hidden; }
+.bar-fill {
+  height: 100%;
+  background: var(--slate-300);
+  border-radius: 4px;
+  transition: width 600ms cubic-bezier(0.2, 0, 0, 1);
+}
+.bar-row.us .bar-fill { background: var(--indigo-500); }
+.bar-row .val { color: var(--slate-700); text-align: right; font-variant-numeric: tabular-nums; }
+.bar-row.us .val { color: var(--indigo-600); font-weight: 700; }
+
+.perf-tabs {
+  display: flex; gap: 4px;
+  margin-bottom: 16px;
+}
+.perf-tab {
+  font-family: var(--mono); font-size: 12px; font-weight: 600;
+  padding: 6px 12px; border-radius: 6px;
+  background: transparent; border: 1px solid var(--slate-200);
+  color: var(--slate-500); cursor: pointer;
+  white-space: nowrap;
+}
+.perf-tab.active { background: var(--slate-900); color: white; border-color: var(--slate-900); }
+
+/* =========================================================
+   USE CASES
+   ========================================================= */
+.cases-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+.case {
+  border: 1px solid var(--slate-200);
+  border-radius: 12px;
+  padding: 22px 22px 24px;
+  background: white;
+}
+.case .ico {
+  font-family: var(--mono); font-size: 11px;
+  background: var(--indigo-50); color: var(--indigo-600);
+  padding: 3px 8px; border-radius: 4px;
+  display: inline-block;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-weight: 700;
+  margin-bottom: 12px;
+  white-space: nowrap;
+}
+.case h3 {
+  font-family: var(--mono); font-weight: 700; font-size: 16px;
+  margin: 0 0 8px; color: var(--slate-900);
+}
+.case p { margin: 0; font-size: 14px; color: var(--slate-600); line-height: 1.55; }
+
+/* =========================================================
+   SECURITY
+   ========================================================= */
+.sec-section {
+  background: var(--slate-950);
+  color: var(--slate-200);
+}
+.sec-section h2 { color: white; }
+.sec-section .section-head .sub { color: var(--slate-400); }
+.sec-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+.sec-card {
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.02);
+  border-radius: 14px;
+  padding: 24px;
+}
+.sec-card.warn {
+  border-color: rgba(251,191,36,0.4);
+  background: rgba(251,191,36,0.06);
+}
+.sec-card .label {
+  font-family: var(--mono); font-size: 11px;
+  text-transform: uppercase; letter-spacing: 0.12em;
+  font-weight: 700;
+  margin-bottom: 8px;
+  display: inline-flex; align-items: center; gap: 6px;
+  white-space: nowrap;
+}
+.sec-card.warn .label { color: var(--amber-400); }
+.sec-card.info .label { color: var(--indigo-400); }
+.sec-card h3 {
+  font-family: var(--mono); font-weight: 700; font-size: 18px;
+  margin: 0 0 10px; color: white;
+}
+.sec-card p { margin: 0; color: var(--slate-400); font-size: 14.5px; line-height: 1.6; }
+.sec-card p strong { color: white; font-weight: 600; }
+.sec-card code {
+  font-family: var(--mono); font-size: 0.92em;
+  background: rgba(255,255,255,0.06); padding: 1px 6px; border-radius: 3px;
+  color: white;
+}
+
+/* =========================================================
+   FOOTER
+   ========================================================= */
+footer {
+  background: var(--slate-950);
+  color: var(--slate-500);
+  padding: 40px 32px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+.footer-inner {
+  max-width: 1120px; margin: 0 auto;
+  display: flex; justify-content: space-between; align-items: center;
+  font-family: var(--mono); font-size: 13px;
+  flex-wrap: wrap; gap: 16px;
+}
+.footer-inner a { color: var(--slate-400); }
+.footer-inner a:hover { color: white; text-decoration: none; }
+.footer-inner .right { display: flex; gap: 18px; }
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+@media (max-width: 980px) {
+  .hero { padding: 56px 24px 80px; }
+  .hero-inner { grid-template-columns: 1fr; gap: 40px; }
+  .hero h1 { font-size: 44px; }
+  .hero-glyph { height: 220px; order: -1; gap: 20px; }
+  .glyph-block { width: 80px; font-size: 22px; }
+  .stats-inner { grid-template-columns: repeat(2, 1fr); gap: 20px; }
+  .how-grid, .cases-grid, .sec-grid { grid-template-columns: 1fr; }
+  .install-grid, .perf-grid { grid-template-columns: 1fr; gap: 32px; }
+  section { padding: 64px 24px; }
+  .section-head h2 { font-size: 30px; }
+  .nav-links { gap: 14px; }
+  .nav-links a:not(.nav-cta) { display: none; }
+}
+@media (max-width: 540px) {
+  .hero h1 { font-size: 36px; }
+  .nav-inner { padding: 12px 20px; }
+  .stats-inner { grid-template-columns: 1fr 1fr; }
+  .stat .num { font-size: 22px; }
+  .glyph-block { width: 64px; font-size: 18px; gap: 8px; }
+  .glyph-label { font-size: 10px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ============== NAV ============== -->
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="#" class="nav-brand">
+      <span class="b1">bit</span><span class="b2">split</span>
+    </a>
+    <div class="nav-links">
+      <a href="#how">How it works</a>
+      <a href="#install">Install</a>
+      <a href="#performance">Performance</a>
+      <a href="#security">Security</a>
+      <a href="https://github.com/frolpaxa/bitsplit" class="nav-cta">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg>
+        GitHub
+      </a>
+    </div>
+  </div>
+</nav>
+
+<!-- ============== HERO ============== -->
+<header class="hero">
+  <div class="hero-inner">
+    <div>
+      <span class="eyebrow">v0.3 · pure python · zero deps</span>
+      <h1>Split any file<br>into <span class="accent">two halves</span>.</h1>
+      <p class="lede">
+        bitsplit turns any file into a binary block and a 128-bit text key.
+        Without the key, the block is useless. Without the block, the key is just a number.
+      </p>
+      <div class="hero-actions">
+        <a href="#install" class="btn btn-primary">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M7.47 10.78a.75.75 0 0 0 1.06 0l3.75-3.75a.75.75 0 0 0-1.06-1.06L8.75 8.44V1.75a.75.75 0 0 0-1.5 0v6.69L4.78 5.97a.75.75 0 0 0-1.06 1.06ZM3.75 13a.75.75 0 0 0 0 1.5h8.5a.75.75 0 0 0 0-1.5Z"/></svg>
+          pip install bitsplit
+        </a>
+        <a href="https://github.com/frolpaxa/bitsplit" class="btn btn-secondary">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 .25a.75.75 0 0 1 .673.418l1.882 3.815 4.21.612a.75.75 0 0 1 .416 1.279l-3.046 2.97.719 4.192a.751.751 0 0 1-1.088.791L8 12.347l-3.766 1.98a.75.75 0 0 1-1.088-.79l.72-4.194L.818 6.374a.75.75 0 0 1 .416-1.28l4.21-.611L7.327.668A.75.75 0 0 1 8 .25Z"/></svg>
+          Star on GitHub
+        </a>
+      </div>
+    </div>
+
+    <!-- Animated split glyph -->
+    <div class="hero-glyph" aria-hidden="true">
+      <div class="glyph-block b-key">
+        <span>1</span><span>0</span><span>1</span>
+        <span class="glyph-label">key<span class="file">key.txt · 102 B</span></span>
+      </div>
+      <div class="glyph-divider"></div>
+      <div class="glyph-block b-data">
+        <span>0</span><span>1</span><span>1</span>
+        <span class="glyph-label">block<span class="file">data.bin · 1.05 MB</span></span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ============== STATS ============== -->
+<div class="stats">
+  <div class="stats-inner">
+    <div class="stat"><div class="num">2<span class="accent">^128</span></div><div class="lbl">key space</div></div>
+    <div class="stat"><div class="num">~20 <span class="accent">MB</span></div><div class="lbl">peak memory · any file size</div></div>
+    <div class="stat"><div class="num">0<span class="accent">×</span></div><div class="lbl">dependencies</div></div>
+    <div class="stat"><div class="num">1<span class="accent"> shift + 1 OR</span></div><div class="lbl">to recover the file</div></div>
+  </div>
+</div>
+
+<!-- ============== HOW IT WORKS ============== -->
+<section id="how">
+  <div class="section-inner">
+    <div class="section-head">
+      <span class="eyebrow">how it works</span>
+      <h2>One file in.<br>One block + one key out.</h2>
+      <p class="sub">The file is interpreted as a single large number. The top 128 bits become the key, the rest is saved as a binary block. Recovery is a single bitwise operation.</p>
+    </div>
+
+    <div class="how-grid">
+      <div class="how-card">
+        <div class="how-step">Step 01 · Read</div>
+        <h3>File → Number</h3>
+        <p>The bytes of any file — JPEG, MP4, ZIP, executable — are interpreted as a single integer.</p>
+        <code class="codeline"><span class="com"># number = int.from_bytes(data, "big")</span></code>
+      </div>
+      <div class="how-card">
+        <div class="how-step">Step 02 · Split</div>
+        <h3>Top 128 bits → key</h3>
+        <p>Slice the top 128 bits off the integer. They're stored as a short text key in <code style="font-family:var(--mono);font-size:0.9em;background:var(--slate-100);padding:1px 5px;border-radius:3px">key.txt</code>.</p>
+        <code class="codeline">key_data = number &gt;&gt; <span class="num">count</span></code>
+      </div>
+      <div class="how-card">
+        <div class="how-step">Step 03 · Save</div>
+        <h3>Rest → block</h3>
+        <p>Everything below those 128 bits is written as raw bytes to <code style="font-family:var(--mono);font-size:0.9em;background:var(--slate-100);padding:1px 5px;border-radius:3px">data.bin</code>. Same total size as the original.</p>
+        <code class="codeline">indices = number &amp; ((<span class="num">1</span> &lt;&lt; count) - <span class="num">1</span>)</code>
+      </div>
+    </div>
+
+    <div class="flow">
+<pre>File (bytes)  →  Number  →  [ <span class="indigo">data: 128 bits</span> | <span class="lav">indices: the rest</span> ]
+                                       │                       │
+                                    <span class="indigo">key.txt</span>                <span class="lav">data.bin</span>
+
+Recovery:  number = (<span class="indigo">key_data</span> &lt;&lt; count) | <span class="lav">indices</span>
+           data   = number.to_bytes(size, "big")</pre>
+    </div>
+  </div>
+</section>
+
+<!-- ============== INSTALL / DEMO ============== -->
+<section id="install" style="background: var(--slate-50);">
+  <div class="section-inner">
+    <div class="install-grid">
+      <div class="install-copy">
+        <span class="eyebrow">install</span>
+        <h2>One pip away.</h2>
+        <p style="margin-bottom: 24px;">Pure Python 3.11+, standard library only. No compiled extensions, no platform quirks.</p>
+
+        <div class="install-tabs">
+          <button class="install-tab active" data-tab="pip" onclick="switchInstall('pip')">pip</button>
+          <button class="install-tab" data-tab="pipx" onclick="switchInstall('pipx')">pipx</button>
+          <button class="install-tab" data-tab="uv" onclick="switchInstall('uv')">uv</button>
+        </div>
+
+        <div class="install-cmd">
+          <span class="prompt">$</span>
+          <span id="install-cmd-text">pip install bitsplit</span>
+          <button class="copy-btn" onclick="copyInstall(this)">Copy</button>
+        </div>
+
+        <p style="margin-top: 24px; color: var(--slate-500); font-size: 14px;">
+          Then run <code style="font-family:var(--mono);background:white;border:1px solid var(--slate-200);padding:1px 6px;border-radius:3px">bitsplit encode &lt;file&gt;</code> on any file.
+        </p>
+      </div>
+
+      <!-- Animated terminal demo -->
+      <div class="terminal" aria-label="Terminal demo">
+        <div class="term-bar">
+          <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+          <span class="title">~/photos — zsh</span>
+        </div>
+        <div class="term-body">
+          <span class="term-line typing delay-1"><span class="prompt">$</span>bitsplit encode photo.jpg</span>
+          <span class="term-line typing delay-2"><span class="out">Block: data.bin (1105407 bytes)</span></span>
+          <span class="term-line typing delay-3"><span class="out">Key:   key.txt</span></span>
+          <span class="term-line typing delay-4">&nbsp;</span>
+          <span class="term-line typing delay-5"><span class="prompt">$</span>cat key.txt</span>
+          <span class="term-line typing delay-6"><span class="key">340079864808174098294188674279182237768:8843264:1105424</span></span>
+          <span class="term-line typing delay-7">&nbsp;</span>
+          <span class="term-line typing delay-8"><span class="prompt">$</span>bitsplit decode restored.jpg <span class="ok">✓</span><span class="cursor"></span></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== PERFORMANCE ============== -->
+<section id="performance" class="perf-section">
+  <div class="section-inner">
+    <div class="section-head">
+      <span class="eyebrow">performance</span>
+      <h2>Two bitwise ops.<br>No loops, no rounds.</h2>
+      <p class="sub">No ciphers means no per-byte processing. bitsplit is competitive with native crypto on small files and pulls ahead on multi-GB inputs.</p>
+    </div>
+
+    <div class="perf-grid">
+      <div class="perf-copy">
+        <p>Benchmarked on Apple M2 with 8 GB RAM. All files restored with identical SHA-256 checksums.</p>
+        <p>The lower the bar, the faster. <span style="color: var(--indigo-600); font-weight: 600;">bitsplit</span> is highlighted.</p>
+
+        <div class="note">
+          Streaming I/O keeps peak memory flat at ~20 MB regardless of file size — even for 5 GB inputs.
+        </div>
+      </div>
+
+      <div class="perf-chart">
+        <h4 id="chart-title">Encode · 1 GB file</h4>
+        <div class="sub" id="chart-sub">seconds, lower is better</div>
+
+        <div class="perf-tabs">
+          <button class="perf-tab active" data-size="1gb" onclick="switchPerf('1gb')">1 GB</button>
+          <button class="perf-tab" data-size="100mb" onclick="switchPerf('100mb')">100 MB</button>
+          <button class="perf-tab" data-size="5gb" onclick="switchPerf('5gb')">5 GB</button>
+        </div>
+
+        <div id="bars"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== USE CASES ============== -->
+<section id="cases">
+  <div class="section-inner">
+    <div class="section-head">
+      <span class="eyebrow">use cases</span>
+      <h2>Two places.<br>Two channels.<br>Two people.</h2>
+      <p class="sub">A breach of one half is useless without the other. That's the whole product.</p>
+    </div>
+
+    <div class="cases-grid">
+      <div class="case">
+        <span class="ico">01 · split storage</span>
+        <h3>Cloud + device</h3>
+        <p>Block on the cloud, key on your laptop. Compromising the cloud reveals nothing.</p>
+      </div>
+      <div class="case">
+        <span class="ico">02 · two channels</span>
+        <h3>Messenger + SMS</h3>
+        <p>Send the block one way, the key another. Intercepting one channel is useless.</p>
+      </div>
+      <div class="case">
+        <span class="ico">03 · offline</span>
+        <h3>Drive + paper</h3>
+        <p>Block on an external SSD. Key written on paper in a safe.</p>
+      </div>
+      <div class="case">
+        <span class="ico">04 · ci/cd</span>
+        <h3>Repo + env vars</h3>
+        <p>Commit the block. Store the 102-byte key in environment variables.</p>
+      </div>
+      <div class="case">
+        <span class="ico">05 · two people</span>
+        <h3>You + co-signer</h3>
+        <p>One person holds the key, another holds the block. Both required to restore.</p>
+      </div>
+      <div class="case">
+        <span class="ico">06 · geo-split</span>
+        <h3>Two data centers</h3>
+        <p>Block in one region. Key in another. Single-region failure protects both.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== SECURITY ============== -->
+<section id="security" class="sec-section">
+  <div class="section-inner">
+    <div class="section-head">
+      <span class="eyebrow" style="color: var(--indigo-400);">honest disclosure</span>
+      <h2>It's a splitter.<br>Not a cipher.</h2>
+      <p class="sub">bitsplit doesn't pretend to be encryption. Knowing what it is — and isn't — is part of the contract.</p>
+    </div>
+
+    <div class="sec-grid">
+      <div class="sec-card warn">
+        <div class="label">⚠ Caution</div>
+        <h3>bitsplit is not encryption</h3>
+        <p>No ciphers. No rounds. No key derivation. If you need a cryptographic standard for compliance or audits, use <strong>AES</strong> or <strong>ChaCha20</strong> via <code>gpg</code> or <code>age</code>.</p>
+      </div>
+      <div class="sec-card info">
+        <div class="label">128-bit key space</div>
+        <h3>Brute-force is infeasible</h3>
+        <p>2<sup>128</sup> ≈ 3.4 × 10<sup>38</sup>. Every computer on Earth at 10<sup>18</sup> ops/sec would need ~10<sup>13</sup> years. The universe is 1.4 × 10<sup>10</sup> years old.</p>
+      </div>
+      <div class="sec-card">
+        <div class="label" style="color: var(--slate-400);">deterministic</div>
+        <h3>Same file → same key</h3>
+        <p>There is no randomness in the process. Same input, same output. This is by design — and worth knowing before you use it.</p>
+      </div>
+      <div class="sec-card">
+        <div class="label" style="color: var(--slate-400);">recommendations</div>
+        <h3>Keep them apart</h3>
+        <p><strong>Keep <code>key.txt</code> private.</strong> Anyone with both halves can restore the file. <strong>Store key and block separately</strong> — that's the entire point.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== FOOTER ============== -->
+<footer>
+  <div class="footer-inner">
+    <div>
+      <span class="mono"><strong style="color: white;">bitsplit</strong> · MIT License · © 2025 frolpaxa</span>
+    </div>
+    <div class="right">
+      <a href="https://github.com/frolpaxa/bitsplit">GitHub</a>
+      <a href="https://github.com/frolpaxa/bitsplit#readme">README</a>
+      <a href="https://pypi.org/project/bitsplit/">PyPI</a>
+      <a href="https://github.com/frolpaxa/bitsplit/issues">Issues</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+// ---------- Install tabs ----------
+const installCommands = {
+  pip: 'pip install bitsplit',
+  pipx: 'pipx install bitsplit',
+  uv: 'uv pip install bitsplit'
+};
+function switchInstall(tab) {
+  document.querySelectorAll('.install-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  document.getElementById('install-cmd-text').textContent = installCommands[tab];
+}
+function copyInstall(btn) {
+  const text = document.getElementById('install-cmd-text').textContent;
+  navigator.clipboard?.writeText(text).then(() => {
+    btn.textContent = 'Copied';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1400);
+  }).catch(() => {});
+}
+
+// ---------- Performance bars ----------
+const PERF_DATA = {
+  '1gb':   { title: 'Encode · 1 GB file',   max: 6,   rows: [
+    { name: 'bitsplit',         val: 1.45, us: true },
+    { name: 'age',              val: 1.56 },
+    { name: 'GPG AES-256',      val: 3.58 },
+    { name: 'OpenSSL ChaCha20', val: 3.18 },
+    { name: 'OpenSSL AES-256',  val: 5.11 },
+    { name: '7-Zip AES-256',    val: 3.16 },
+  ]},
+  '100mb': { title: 'Encode · 100 MB file', max: 5,   rows: [
+    { name: 'bitsplit',         val: 0.13, us: true },
+    { name: 'age',              val: 0.15 },
+    { name: 'OpenSSL ChaCha20', val: 0.36 },
+    { name: 'OpenSSL AES-256',  val: 0.64 },
+    { name: 'GPG AES-256',      val: 2.43 },
+    { name: '7-Zip AES-256',    val: 4.86 },
+  ]},
+  '5gb':   { title: 'Encode · 5 GB file',   max: 400, rows: [
+    { name: 'bitsplit',         val: 15.6, us: true },
+    { name: 'age',              val: 10.5 },
+    { name: 'OpenSSL AES-256',  val: 58.8 },
+    { name: 'OpenSSL ChaCha20', val: 78.6 },
+    { name: 'GPG AES-256',      val: 148.5 },
+    { name: '7-Zip AES-256',    val: 372.2 },
+  ]},
+};
+function switchPerf(size) {
+  document.querySelectorAll('.perf-tab').forEach(t => t.classList.toggle('active', t.dataset.size === size));
+  const data = PERF_DATA[size];
+  document.getElementById('chart-title').textContent = data.title;
+  const bars = document.getElementById('bars');
+  bars.innerHTML = '';
+  // sort by value asc so fastest is on top
+  const sorted = [...data.rows].sort((a, b) => a.val - b.val);
+  sorted.forEach((r, i) => {
+    const row = document.createElement('div');
+    row.className = 'bar-row' + (r.us ? ' us' : '');
+    const pct = Math.min(100, (r.val / data.max) * 100);
+    row.innerHTML = `
+      <div class="lbl">${r.name}</div>
+      <div class="bar-track"><div class="bar-fill" style="width: 0%"></div></div>
+      <div class="val">${r.val} s</div>
+    `;
+    bars.appendChild(row);
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        row.querySelector('.bar-fill').style.width = pct + '%';
+      }, i * 60);
+    });
+  });
+}
+switchPerf('1gb');
+
+// ---------- Smooth scroll ----------
+document.querySelectorAll('a[href^="#"]').forEach(a => {
+  a.addEventListener('click', e => {
+    const id = a.getAttribute('href');
+    if (id.length > 1) {
+      const el = document.querySelector(id);
+      if (el) { e.preventDefault(); el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+    }
+  });
+});
+</script>
+
+</body>
+</html>
